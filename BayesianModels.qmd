@@ -54,7 +54,7 @@ n <- 10
 x <- matrix(rnorm(n*length(b),0,1),nrow = n)
 
 #Simulated Responses
-y <- rnorm(n,x %*% b,sig2) + rnorm(n,0,10)
+y <- rnorm(n,x %*% b,sig2) + rnorm(n,0,1)
 
 sign_mat <- ((sig2_mat)^-1 + (1/sig2) * t(x)%*%x)^-1
 beta_n <- sign_mat %*% (diag(sig2_mat)^-1 * theta + (1/sig2) * t(x)%*% as.matrix(y))
@@ -88,7 +88,7 @@ hist(post_sim[,b_index])
 
 ```{r}
 ## Regularized Linear Regression
-tau2 <- 10  # Prior variance (corresponds to ridge penalty)
+tau2 <- 5  # Prior variance (corresponds to ridge penalty)
 
 
 sign_mat_ridge <- ((sig2_mat/tau2)^-1 + (1/sig2) * t(x)%*%x)^-1
@@ -98,11 +98,13 @@ beta_n_ridge
 post_sim <- rmvnorm(1000, mean = beta_n_ridge, sigma = sign_mat_ridge)
 hist(post_sim[,b_index])
 
+cbind(b,beta_n,beta_n_ridge,lm.fit$coefficients[-1])
+
 ```
 
 ## Non-linear Regression
 
-### Generalized Linear Models (discuss exp-log trick)
+### Generalized Linear Models
 
 Linear models are extremely simple to implement and often provide a suitable if not satisfactory level of performance in most tasks. However, there are many situations in which a Normal distribution may not be the optimal likelihood for our problem (for example, if we are trying to predict counts). In such cases, it is preferable to replace our Normal likelihood (and corresponding priors) with a more suitable one (in this example, a Poisson) from the Exponential family. Such extensions of the linear model are known as **Generalized Linear Models (GLMs)**. GLMs take the following formulation:
 

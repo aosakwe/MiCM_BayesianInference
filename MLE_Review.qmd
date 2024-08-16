@@ -191,10 +191,10 @@ $$
 
 Where Y is a set containing **all** observations and $i$ represents a specific observation.
 
+Hint: you can get the corresponding pdfs from the cheat sheet!
+
 Knowing this, try to derive the joint likelihood for the three scenarios above. If you simplify it, do you find a **sufficient statistic**?
 
 ### 4. Deriving the maximum likelihood estimate
 
 For one of the above scenarios, find the derivative of the likelihood and obtain the MLE. Does this align with the simulated data you plotted?
-
-Hint: you can get the corresponding pdfs from the cheat sheet!
