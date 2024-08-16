@@ -1,0 +1,436 @@
+---
+title: "Bayesian Framework"
+author: "Adrien Osakwe"
+format: html
+editor: visual
+---
+
+## Bayesian Framework
+
+In the Bayesian framework, we treat the distribution parameters as random variables. We are first interested in knowing what the probability of the thumbtack landing upwards is *prior* to tossing any. This prior essentially defines the distribution from which our parameter $\theta$ is sampled from. For example, we can set this to be a beta distribution:
+
+$$
+ \theta  \sim Beta(\alpha,\beta)
+$$
+
+We can also formulate the *sampling distribution (likelihood)* which is the distribution of the data *given* the parameter. It is denoted as follows:
+
+$$
+f_{S_n|\Theta}(s_n | \theta)
+$$ This notation emphasizes that the sampling distribution is a *conditional* probability distribution. We therefore have a model composed of the following prior and sampling distributions: $$
+S_n|\theta \sim Bin(n,\theta)
+$$
+
+$$
+\theta \sim Beta(\alpha,\beta)
+$$ With this tools, we can now focus on updating our parameter estimates based on observed data. This step is what has us compute the so-called *posterior* distribution of the parameter. We start with:
+
+$$
+f_{\theta,\S_n}(\theta,s_n) = f_{\theta|S_n}(\theta|s_n)f_{S_n}(s_n)
+$$ $$
+f_{\theta|S_n}(\theta|s_n) = f_{\theta,\S_n}(\theta,s_n)/f_{S_n}(s_n)
+$$ $$
+f_{\theta|S_n}(\theta|s_n) = \frac{f_{\theta}(\theta)f_{\S_n|\theta}(s_n|\theta)}{f_{S_n}(s_n)}
+$$ As the denominator on the RHS has no dependence on $\theta$, it can be ignored and the posterior can be seen as proportional to the joint distribution (the numerator):
+
+$$
+f_{\theta|S_n}(\theta|s_n) \propto f_{\theta}(\theta)f_{S_n|\theta}(s_n|\theta) = \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)}\theta^{\alpha - 1}(1-\theta)^{\beta - 1} * \binom{n}{s_n}\theta^{s_n}(1-\theta)^{n-s_n}
+$$ $$
+ \propto \theta^{s_n + \alpha_0 - 1}(1-\theta)^{n-s_n + \beta_0 - 1}
+$$
+
+This derivation is similar in form to the beta distribution given the following, new representation of the posterior:
+
+$$
+\Theta|S_n \sim Beta(s_n + \alpha_0, n - s_n + \beta_0) 
+$$ We can now compare the prior and posterior:
+
+```{r}
+n <- 25
+sn <- 15
+a <- 2
+b <- 3
+a_n <- a + sn
+b_n <- n - sn + b
+thetas <- seq(0,1,0.01)
+prior <- dbeta(thetas,a,b)
+posterior <- dbeta(thetas,a_n,b_n)
+plot(thetas,prior, xlab = 'Theta Value',ylab = 'f(Theta)',
+     col = 'blue',ylim = c(0,max(posterior)),
+     type = 'l')
+lines(thetas,posterior, col = 'red')
+legend('topleft',inset = 0.02,legend = c('Beta(a,b)','Beta(a_n,b_n)'),
+       col = c('blue','red'),
+       lwd = 2)
+
+```
+
+This reveals that the true value of theta (given the observed trials) is most likely between \~ 0.4 and 0.8.
+
+```{r}
+pbeta(0.8,a_n,b_n) - pbeta(0.4,a_n,b_n) 
+```
+
+We can also calculate the *posterior mean* by finding the mean of the beta distribution we derived for the posterior
+
+$$
+ E(\theta|S_n = s_n) = \frac{\alpha_n}{\alpha_n + \beta_n} = \frac{s_n + \alpha_0}{\alpha_0 + n + \beta_0} = \frac{17}{30}
+$$
+
+### Components of Bayesian Inference
+
+We can now generalize the example to highlight the key concepts for Bayesian inference.
+
+We work on a problem with *observed* data coming from *n* observations which we can then use to create and update a model representing the *generative process* behind the data. Here, we will focus on parametric inference, where the observed data helps us better estimate the model parameters.
+
+#### Sampling Distribution and the Likelihood function
+
+The conditional distribution of the data given the parameter values, $$f_{S_n|\Theta}(s_n|\theta)$$ , can be referred to as the sampling distribution or the likelihood function. The be exact, the sampling distribution presents the above as a function of the observed data, whereas the likelihood presents it as a function of the model parameters.
+
+If we assume that our data is independent, given $$\theta$$, we can present the joint sampling distribution as a product of the sampling distributions for each random variable or trial:
+
+$$
+f_{S_N|\Theta}(s|\theta) = \prod_{i =1}^{N}f_{S_i|\Theta}(s_i|\theta)
+$$
+
+Which becomes even simpler if the observations ar i.i.d (not only independent, but coming from the same distribution):
+
+$$
+f_{S_N|\Theta}(s|\theta) = \prod_{i =1}^{N}f(s_i|\theta)
+$$
+
+Many different models can be used for the sampling distribution, but it is usually recommended to use models whose behavior best describes the observed phenomena (e.g. our thumbtack example is a clear success or failure scenario, which makes the binomial distribution suitable).
+
+#### Prior distribution
+
+The prior distribution represents the distribution from which the parameter values of the sampling distribution are generated. It represents our beliefs in the parameter values *prior* to observing any data.
+
+In situations where there is little confidence in the possible values for the parameter, it is best to just a vague prior distribution to reduce its influence on the model and put a greater emphasis on the observed data (*uninformative prior*). We could also have an *informative prior* which has a greater influence on the model which can enforce sparsity on values we believe should be zero. We can also call the prior distribution a parametric distribution, which depends on *hyperparameters* (in the thumbtack case, these would be $\alpha$ and $\beta$ ).
+
+**Posterior distribution**
+
+For the posterior, we make use of Bayes' theorem to formulate it. The normalizing constant, which has no dependence on the parameter can be treated as a constant w.r.t. the parameter values and is often ignored. We can therefore compute the posterior as being *proportional* to the joint distribution.
+
+#### Marginal Likelihood
+
+The normalizing constant is also described as the *marginal likelihood*, as it represents the joint probability of the observed data after marginalizing out the parameter $\theta$. This presents itself as an integral in continuous cases and as a sum in discrete cases (for the parameter). This can also be seen as the expectation of the sampling distribution, where we average the values over the full sample space for $\theta$ .
+
+### Prediction
+
+Beyond estimating the true parameter values, we are also interested in predicting the unobserved data (n + m). The simplest way to achieve this would be to use the MLE for the model parameters and predict the new data. This however, can lead to estimates that are biased if the observed data used for the MLE came from a small sample size (e.g.: only three tosses and all fell down). We can instead go the Bayesian route and compute a probability for the new observations *given* the observed data
+
+$$
+f_{\tilde{S}|S}(\tilde{s}|s)
+$$
+
+The parameter values aren't present in the function, but it is important to realize that they are need to derive the predictive distribution. In essence, the posterior predictive distribution is calculated as the product of the sampling distribution for the new data and the *posterior* distribution from the observed data, which acts as un *updated prior distribution*. In essence, the same way we updated $\alpha$ and $\beta$ for the observed data, we do it again by updating their updated values.
+
+$$
+f_{\tilde{S}|S_n}(\tilde{s}|s_n) = \int_{\Theta}
+f_{\tilde{S}|\Theta}(\tilde{s}|\theta)f_{\theta|S_n}(\theta|s_n)
+d\theta
+$$
+
+$$
+f_{\tilde{S}|S_n}(\tilde{s}|s_n) = \int_{\Theta}\binom{m}{\tilde{s}}
+\theta^{\tilde{s}}(1-\theta)^{m - \tilde{s}}
+\frac{1}{B(\alpha_n,\beta_n)}
+\theta^{\alpha_n - 1}(1-\theta)^{\beta_n - 1}d\theta
+$$
+
+Removing constants and recognizing the new formulation of a beta function, as in the earlier example, allows us to define the new posterior predictive function given the updated prior:
+
+$$ 
+f_{\tilde{S}|S_n}(\tilde{s}|s_n) = \binom{m}{\tilde{s}}\frac{B(\tilde{s} + \alpha_n,m + \beta_n - \tilde{s})}{B(\alpha_n,\beta_n)}
+$$
+
+Which represents the **beta-binomial distribution**. With this formulation we can therefore iteratively update our prior distribution as we collect more samples, leading to a progressively more accurate posterior predictive distribution.
+
+### Credible Intervals
+
+The credible interval acts as a Bayesian version of the frequentist confidence interval. However, credible intervals provide a much more intuitive interpretation as a 95% credible interval contains the true parameter value with 95% probability. On the other hand the frequentist confidence interval says that 95% of the time, the true parameter value falls within the designated range.
+
+#### Definition
+
+In the case of a one-dimensional parameter $\Theta \in \Omega$ with a confidence level of $\alpha \in (0,1)$ there exists an interval $I_\alpha$ which contains a proportion $1 - \alpha$ of the pmf of the posterior:
+
+$$ P(\Theta \in I_\alpha|Y = y) = 1- \alpha $$
+
+which is referred to as the **credible interval**. We usually assess the 95% credible interval. The region of parameter values that contain the credible interval is called the **credible region**. Applying this concept to the prior can be a useful way of selecting an informative prior, as we can find a distribution whose credible interval complements the interval found with an estimate from the observed data.
+
+### Equal-tailed and One-tailed Intervals
+
+An equal-tailed interval aims at finding the credible interval between the $\alpha/2$ and the $1-\alpha/2$ quantiles. Most credible intervals are calculated as equal-tailed. However, this is only sensible if the posterior is unimodal and symmetric. In other cases, a one-tailed ($[0,1-\alpha]$ or $[\alpha,1]$) may be more reasonable.
+
+### Examples
+
+We can explore the concept using the gamma-poisson model.
+
+#### Equal-tailed
+
+```{r}
+n <- 100 
+true_theta <- 8 
+set.seed(123) 
+y <- rpois(n,true_theta) 
+a <- 1 
+b <- 2 
+conf <- 0.05 
+theta <- seq(0,10,length = 100) 
+par(mfrow = c(3,2),mar = c(5, 5, 1.5, 1.5)) 
+q_low <- qgamma(conf,a,b) 
+q_high <- qgamma(1-conf,a,b) 
+prior <- dgamma(theta,shape = a, rate = b) 
+
+plot(theta,prior,
+     type = 'l',
+     col = 'orange',
+     xlab = 'Theta Values',
+     ylab = 'Density',
+     main = "Prior")   
+abline(v = true_theta, lty = 2) 
+polygon(c(q_low,theta[theta >= q_low & theta <= q_high],q_high),
+        c(0,prior[theta >= q_low & theta <= q_high],0),
+        col = 'orange',border = 'orange') 
+legend('topright', inset = .02, legend = c('Prior'), 
+       col = c('orange'), lwd = 2) 
+
+
+for (i in c(5,10,25,50,100)){   
+  prior <- dgamma(theta,shape = a, rate = b)   
+  posterior <- dgamma(theta,shape = a + sum(y[1:i]), rate = b + i)   
+  plot(theta,prior,
+       type = 'l',
+       col = 'orange',
+       xlab = 'Theta Values',
+       ylab = 'Density',       
+       main = paste('n = ',i,sep = ''))
+  lines(theta,posterior,col = 'green')
+  q_low <- qgamma(conf,a + sum(y[1:i]),b + i)
+  q_high <- qgamma(1-conf,a + sum(y[1:i]),b + i)
+  polygon(c(q_low,theta[theta >= q_low & theta <= q_high],q_high), 
+          c(0,posterior[theta >= q_low & theta <= q_high],0),
+          col = 'lightgreen',border = 'lightgreen')
+  abline(v = true_theta, lty = 2)   
+  legend('topright', inset = .02, legend = c('Prior', 'Posterior'),
+         col = c('orange', 'green'), lwd = 2) 
+}
+```
+
+#### One-tailed
+
+```{r}
+n <- 100 
+true_theta <- 5 
+set.seed(123) 
+y <- rpois(n,true_theta) 
+a <- 1 
+b <- 2 
+conf <- 0.05 
+theta <- seq(0,10,length = 100) 
+par(mfrow = c(3,2),mar = c(5, 5, 1.5, 1.5)) 
+q_low <- 0 
+q_high <- qgamma(1-conf,a,b) 
+prior <- dgamma(theta,shape = a, rate = b) 
+
+plot(theta,prior, type = 'l', col = 'orange', xlab = 'Theta Values',
+     ylab = 'Density',        main = paste('n = ',i,sep = ''))
+abline(v = 5, lty = 2) 
+polygon(c(q_low,theta[theta >= q_low & theta <= q_high],q_high),         
+        c(0,prior[theta >= q_low & theta <= q_high],0),         
+        col = 'orange',border = 'orange') 
+legend('topright', inset = .02, legend = c('Prior'),          
+       col = c('orange'), lwd = 2) 
+
+for (i in c(5,10,25,50,100)){   
+  prior <- dgamma(theta,shape = a, rate = b)
+  posterior <- dgamma(theta,shape = a + sum(y[1:i]), rate = b + i)
+  plot(theta,prior, type = 'l', col = 'orange', xlab = 'Theta Values',
+       ylab = 'Density',
+       main = paste('n = ',i,sep = ''))
+  lines(theta,posterior,col = 'green')
+  q_high <- qgamma(1-conf,a + sum(y[1:i]),b + i)
+  polygon(c(q_low,theta[theta >= q_low & theta <= q_high],q_high),
+          c(0,posterior[theta >= q_low & theta <= q_high],0),
+          col = 'lightgreen',border = 'lightgreen')
+  abline(v = 5, lty = 2)   
+  legend('topright', inset = .02,
+         legend = c('Prior', 'Posterior'), 
+         col = c('orange', 'green'), lwd = 2) 
+}
+```
+
+### Influence of the Prior
+
+We can use the prior distribution to demonstrate how its influence on the posterior changes as more data is observed. The credible interval of the prior tells us the 95% of the probability mass should lie before any data is observed (i.e. the range of values we believe to be most likely). We repeat the previous even-tailed example using larger parameter values for the prior to emphasize its influence more clearly.
+
+```{r}
+n <- 500 
+true_theta <- 5 
+set.seed(123) 
+y <- rpois(n,true_theta) 
+a <- 10 
+b <- 20 
+conf <- 0.05 
+theta <- seq(0,10,length = 100) 
+par(mfrow = c(3,2),mar = c(5, 5, 1.5, 1.5)) 
+q_low <- 0 
+q_high <- qgamma(1-conf,a,b) 
+prior <- dgamma(theta,shape = a, rate = b) 
+plot(theta,prior, type = 'l', col = 'orange', xlab = 'Theta Values',        
+     ylab = 'Density',        
+     main = paste('n = ',i,sep = ''))   
+abline(v = true_theta, lty = 2) 
+polygon(c(q_low,theta[theta >= q_low & theta <= q_high],q_high),         
+                               c(0,prior[theta >= q_low & theta <= q_high],0),
+        col = 'orange',border = 'orange') 
+legend('topright', inset = .02, legend = c('Prior'),
+       col = c('orange'), lwd = 2) 
+
+for (i in c(5,50,100,250,500)){   
+  prior <- dgamma(theta,shape = a, rate = b)
+  posterior <- dgamma(theta,shape = a + sum(y[1:i]), rate = b + i)   
+  plot(theta,prior, type = 'l',
+       col = 'orange', xlab = 'Theta Values',
+       ylab = 'Density',
+       main = paste('n = ',i,sep = ''))   
+  lines(theta,posterior,col = 'green')  
+  q_high <- qgamma(1-conf,a + sum(y[1:i]),b + i)
+  polygon(c(q_low,theta[theta >= q_low & theta <= q_high],q_high),
+          c(0,posterior[theta >= q_low & theta <= q_high],0),
+          col = 'lightgreen',border = 'lightgreen')   
+  abline(v = true_theta, lty = 2)   
+  legend('topright', inset = .02,
+         legend = c('Prior', 'Posterior'),
+         col = c('orange', 'green'), lwd = 2) 
+}
+```
+
+This example shows more clearly how the addition of more samples shifts the influence on the posterior from the prior to the observed data. This is why the choice of a non-informative prior can be very useful if we are uncertain of a plausible informative prior.
+
+### Highest Posterior Density
+
+In addition to the credible interval, we can also identify the **highest posterior density (HPD)** region. The HPD is a confidence region $I_\alpha$ in which the posterior density for every point within the set is greater than the posterior density for any point outside of the interval.
+
+$$ f_{\Theta|Y}(\theta|y) \geq f_{\Theta|Y}(\theta'|y) $$
+
+where $\theta \in I_\alpha$ and $\theta' \notin I_\alpha$ . It is therefore the smallest possible credible region in the distribution. As a result, the HPD region is not necessarily an interval, and can be a union of distinct intervals on the distribution. This makes it useful for multimodal posteriors where an even-tailed or one-tailed credible interval would not be able to fully represent the information provided. We can demonstrate its value with a bimodal posterior derived from a mixture of beta distributions.
+
+```{r}
+conf <- 0.05 
+a1 <- 10 
+b1 <- 20 
+a2 <- 20 
+b2 <- 5  
+beta_mixture <- function(x,a1,a2,b1,b2){   
+  0.5*dbeta(x,a1,b1) + 0.5*dbeta(x,a2,b2) 
+} 
+
+#Generate Data 
+n <- 100000 
+theta1 <- rbeta(n/2,a1,b1) 
+theta2 <- rbeta(n/2,a2,b2) 
+theta <- sort(c(theta1,theta2)) 
+q_low <- theta[round(conf*n/2)] 
+q_high <- theta[round((1-conf/2)*n)] 
+x <- seq(0,1,length = 1000) 
+y <- beta_mixture(x,a1,a2,b1,b2) 
+plot(x,y,type = 'l', col = 'blue',lwd = 2,      
+     xlab = expression(theta), ylab = 'Density',      
+     main = "Credible Interval on Bimodal Distribution") 
+
+polygon(c(q_low,x[x >= q_low & x <= q_high],q_high), 
+        c(0,y[x >= q_low & x <= q_high],0), 
+        col = 'lightblue',lwd = 2, border = 'blue')
+```
+
+As described, the plot shows how the credible interval ends up including a region of the distribution with low densities and omitting other regions with higher densities. The HPD region can therefore resolve this issue:
+
+```{r}
+densities <- density(theta) 
+hpd <- HDInterval::hdi(densities,allowSplit = TRUE) 
+height <- attr(hpd, 'height') 
+q_low1 <- hpd[1,1] 
+q_high1 <- hpd[1,2] 
+q_low2 <- hpd[2,1] 
+q_high2 <- hpd[2,2] 
+x <- seq(0,1,length = 1000)
+y <- beta_mixture(x,a1,a2,b1,b2) 
+plot(x,y,type = 'l', col = 'blue',lwd = 2,      
+     xlab = expression(theta), ylab = 'Density',     
+     main = "HPD Region for a Bimodal Distribution") 
+
+polygon(c(q_low1,x[x >= q_low1 & x <= q_high1],q_high1),
+        c(0,y[x >= q_low1 & x <= q_high1],0),   
+        col = 'lightblue',lwd = 2, border = 'blue')
+
+polygon(c(q_low2,x[x >= q_low2 & x <= q_high2],q_high2),      
+        c(0,y[x >= q_low2 & x <= q_high2],0),      
+        col = 'lightblue',lwd = 2, border = 'blue') 
+```
+
+Here we can clearly see the advantage HPD regions provide for summarizing multimodal distributions. It also demonstrates why it is important to visualize the posterior distribution before summarizing it in terms of one-dimensional summary statistics such as a mean or median.
+
+### Posterior Mean
+
+The mean of the posterior distribution is referred to as a **Bayes Estimator**:
+
+$$ \hat{\lambda}_{Bayes}(Y) = \mathbb{E}[\theta|Y] $$
+
+The mean for the gamma distribution is $\frac{\alpha}{\beta}$ so the Bayes estimator for the Poisson-gamma model derived in the last chapter is
+
+$$ \mathbb{E}[\theta|Y = y] = \frac{\alpha + s_n}{\beta + n} $$
+
+The posterior mean can also be expressed as a convex combination of the mean of the prior distribution
+
+$$ \mathbb{E}[\theta|Y = y] = \frac{\alpha + s_n}{\beta + n} = k\frac{\alpha}{\beta} + (1-k)\frac{s_n}{n} $$
+
+Where $k$ is $\frac{\beta}{\beta + n}$ and shows how the posterior mean is progressively influence by the sample mean as the sample size increases. In this case, as the sample size approaches infinity, the Bayes estimator takes the form of the maximum likelihood estimator which is the sample mean for the model. This formulation also explains how the parameterization of the prior distribution affects its influence on the posterior.
+
+## Exercises
+
+### 1. Complete Posterior Derivation
+
+You have a suite of patients for whom you record the number of visits following treatment (Poisson likelihood). Derive the posterior using the gamma distribution (conjugate).
+
+Hint: First derive the joint likelihood over $n$ observations. Then take the product of the joint likelihood and the prior.
+
+```{r}
+#Define true parameter value and simulate observations
+
+#Define hyper-parameter values for the gamma prior
+
+#Plot posterior distribution over a range of possible parameter values
+```
+
+### 2. Derive prior predictive distributions
+
+Derive the prior predictive distribution for the Poisson-Gamma Model
+
+$$
+P(Y) = \int P(Y|\theta)P(\theta)d\theta
+$$
+
+```{r}
+#Plot distribution over the range of possible sufficient statistic values
+```
+
+### 3. Use posterior predictive distributions
+
+Using simulated observations, derive the posterior predictive distribution for the Poisson-Gamma Model
+
+$$
+P(\hat{Y}| Y) = \int P(\hat{Y}|\theta)P(\theta| Y)d\theta
+$$
+
+```{r}
+#Like in 2. generate a plot except compare how the updated prior has changed our predictions
+```
+
+### Extra
+
+Re-use some of the code from above to visualize the credible interval for the model parameters. How does it change with different prior parameters? What about different sample sizes?
+
+```{r}
+
+```

@@ -1,0 +1,282 @@
+---
+title: "MCMC Cauchy Regression"
+author: "Adrien Osakwe"
+format: html
+editor: visual
+---
+
+In this example, we will look at creating a regression model using the Cauchy distribution. This distribution is more apt at managing outliers than a normal distribution. We will see how to use MCMC to infer our parameters and see how our choice of likelihood leads to better inference.
+
+## Generating Training Data
+
+```{r}
+n<-23
+set.seed(81642)
+be0<-20
+be1<-8
+sig<-4
+x<-sort(runif(n,0,5))
+y<-be0+be1*x+rt(n,1)*sig
+cbind(x,y)
+
+
+summary(lm(y~x))$coef
+par(mar=c(4,4,2,2))
+plot(x,y,pch=19,cex=0.75)
+abline(coef(lm(y~x)),col='red')
+
+```
+
+As the Cauchy distribution does not have a conjugate prior, we can approximate the parameter values by using MCMC via the Metropolis-Hastings algorithm.
+
+## Posterior Derivation
+
+### Prior selection
+
+As mentioned previously, the Cauchy distribution does not have a conjugate prior. As we are comparing the Cauchy model to linear regression,we can use normal priors for the regression coefficients and an Inverse Gamma prior for the variance parameter.
+
+$$ \beta_0,\beta_1 \sim Normal(m_0,M_0) \\  $$
+
+$$
+\sigma^2 \sim InvGamma(a_0/2,b_0/2)
+$$
+
+where $M_0 = \frac{\sigma^2}{\lambda}$ . For simplicity, we assume $\lambda = 1$ in this case.
+
+### Joint Likelihood
+
+Assuming that each observation is conditionally independent give the parameters (de Finetti), we can represent the joint likelihood as follows:
+
+$$
+L_n(\beta_0,\beta_1,\sigma^2) = \prod_{i=1}^n\frac{1}{\pi}\frac{1}{\sigma}\{1 +(\frac{y_i - \beta_0 - \beta_1x_i}{\sigma})\}^{-1} \\
+$$
+
+With these components, we can approximate the posterior up to proportionality as follows:
+
+$$
+\pi_n(\beta_0,\beta_1,\sigma^2) \propto L_n(\beta_0,\beta_1,\sigma^2)\pi_0(\beta_0|\sigma^2)\pi_0(\beta_1|\sigma^2)\pi_0(\sigma^2) 
+$$
+
+$$
+= \prod_{i=1}^n\frac{1}{\pi}\frac{1}{\sigma}\{1 +(\frac{y_i - \beta_0 - \beta_1x_i}{\sigma})\}^{-1} \frac{1}{2\pi\sigma^2}exp(-\frac{1}{2\sigma^2}((\beta_0 - m_0)^2+(\beta_1 - m_0)^2) * 
+$$
+
+$$
+\frac{(b_0/2)^{a_0/2}}{\Gamma(a_0/2)}(\frac{1}{\sigma^2})^{a_0/2+1}exp(\frac{b_0}{2\sigma^2})
+$$
+
+Although it can be further simplified, the form of the posterior does not match a known distribution and does not depend solely on sufficient statistics. We can therefore make use of simulation methods to infer parameter estimates instead. A particular approach that can work well is the Metropolis-Hastings algorithm.
+
+## Metropolis-Hastings Formulation
+
+Although Gibbs sampling is a faster approach, the posterior is likely to be intractable so MH is favorable. To simplify the sampling procedure, we can choose the proposal distribution $q(z;x) \sim Normal(x,\phi)$ where $x$ is the previous sample and $\phi$ is a user-defined variance. This ensures us that $q(z;x) = q(x;z)$ leading to the acceptance probability $\alpha$ to only depend on the approximation of the posterior $\pi_n$ we derived in the previous section. Thus,
+
+$$
+\alpha = min\{1,\frac{\pi_n(z)}{\pi_n(x)}\}
+$$
+
+**Procedure:**
+
+1.  Derive Approximation of the posterior (previous section)
+2.  For T iterations
+    1.  For each parameter $(\beta_0,\beta_1,\sigma^2)$
+        1.  Sample the parameter from a proposal distribution $q(z;x^t)$ and compute to the acceptance probability $\alpha$
+        2.  Sample $u \sim Uniform(0,1)$ .
+        3.  If $u < \alpha$ :
+            -   accept proposal and set $x^{t+1} = z$
+            -   else reject and set $x{t+1} = x^t$
+    2.  Repeat
+3.  Repeat Step 2 for X number of runs
+4.  Analyse variance in parameter estimates across runs
+
+## Analysis
+
+```{r}
+m <- 5
+lamda <- 1
+a <- 2
+b <- 2
+
+#Calculate joint likelihood
+like_fun <- function(y,x,b0,b1,sigma,n){
+  cur = 1
+  for (i in 1:n){
+    next_like <- (pi*sigma*(1+((y[i]+b0+b1*x[i])^2)/sigma^2))^(-1) 
+    cur = cur*next_like
+  }
+  cur
+}
+#Compute posterior approximation up to proportionality
+post_fun <- function(y,x,b0,b1,sigma,n,lambda,a,b,m){
+  return(like_fun(y,x,b0,b1,sigma,n)*dnorm(b0,sqrt(sigma^2/lamda)) *
+           dnorm(b0,sqrt(sigma^2/lamda)) *dgamma(1/(sigma^2),a/2,b/2))
+}
+```
+
+```{r}
+#Hyperparameters
+m <- 5
+lam <- 1
+a <- 2
+b <- 2
+
+like_fun <- function(y,x,b0,b1,sigma,n){
+  cur = 1
+  for (i in 1:n){
+    next_val = dcauchy(y[i],b0 + b1*x[i],sigma)
+    cur <- cur*next_val
+  }
+  return(cur)
+}
+post_fun <- function(y,x,b0,b1,sigma,n,
+                     m,lam,a,b){
+  likel <- like_fun(y,x,b0,b1,sigma,n)
+  beta_prior <- dnorm(b0,m,sigma/lam)*dnorm(b1,m,sigma/lam)
+  sigma_prior <- dgamma(1/(sigma^2),a/2,b/2)
+  return(likel*beta_prior*sigma_prior)
+}
+
+
+```
+
+```{r}
+mh_sample <-  function(y,x,n,lam,a,b,m,cur_params,sd){
+  b0 <- rnorm(1,cur_params[1],sd[1])
+  b1 <- rnorm(1,cur_params[2],sd[2])
+  sigma <-  abs(rnorm(1,cur_params[3],sd[3]))
+  #Beta 0
+  alpha <- min(1,post_fun(y,x,b0,cur_params[2],cur_params[3],n,m,lam,a,b)/
+                 post_fun(y,x,cur_params[1],cur_params[2],cur_params[3],n,m                    ,lam,a,b))
+  if (runif(1) < alpha){cur_params[1] <- b0}
+  #Beta 1
+  alpha <- min(1,post_fun(y,x,cur_params[1],b1,cur_params[3],n,m,lam,a,b)/
+               post_fun(y,x,cur_params[1],cur_params[2],cur_params[3],n,m                    ,lam,a,b))
+  if (runif(1) < alpha){cur_params[2] <- b1}
+  #Sigma
+  alpha <- min(1,post_fun(y,x,cur_params[1],cur_params[2],sigma,n,m,lam,a,b)/
+             post_fun(y,x,cur_params[1],cur_params[2],cur_params[3],n,m                    ,lam,a,b))
+  if (runif(1) < alpha){cur_params[3] <- sigma}
+  
+      
+  return(cur_params)
+}
+```
+
+```{r}
+iter <- 10000
+mh_run <- function(y,x,n,lam,a,b,m,sd,iter,return_all = TRUE){
+  params <- matrix(nrow = iter,ncol = 3)
+  colnames(params) <- c('b0','b1','sigma2')
+  params[1,] <- c(1,1,1)
+  for (i in 2:iter){
+    cur_params <- params[i-1,]
+    params[i,] <- mh_sample(y,x,n,lam,a,b,m,cur_params,sd)
+  }
+  if(return_all){return(params)}
+  else{return(params[iter,])}
+}
+
+
+mh_output <- mh_run(y,x,n,lam,a,b,m,c(1,1,1),iter,return_all = TRUE)
+
+
+plot(1:1000,mh_output[1:1000,1],type = 's',
+     main = 'MH Estimate for B0 | First 1000 Samples',
+     xlab = "Iteration",
+     ylab = 'Estimate')
+plot(1:1000,mh_output[1:1000,2],type = 's',
+     main = 'MH Estimate for B1 | First 1000 Samples',
+     xlab = "Iteration",
+     ylab = 'Estimate')
+plot(1:1000,mh_output[1:1000,3],type = 's',
+     main = 'MH Estimate for Sigma | First 1000 Samples',
+     xlab = "Iteration",
+     ylab = 'Estimate')
+
+```
+
+## Multiple Runs
+
+We can generate a more accurate estimate by doing multiple runs of the MH algorithm.
+
+```{r}
+
+runs <- 10
+
+mh_all_runs <- function(y,x,n,lam,a,b,m,sd,iter,runs){
+  estimates <- matrix(nrow = runs,ncol = 3)
+  colnames(estimates) <- c('b0','b1','sigma2')
+  for (i in 1:runs){
+    estimates[i,] <- mh_run(y,x,n,lam,a,b,m,sd,iter,return_all = FALSE)
+  }
+  return(estimates)
+}
+
+mh_output <- mh_all_runs(y,x,n,lam,a,b,m,c(1,1,0.1),iter,runs)
+ 
+```
+
+## Visualizations
+
+```{r}
+mysub = paste("Runs: ",runs," Iterations: ",iter,sep = '')
+boxplot(mh_output[,1],mh_output[,2],mh_output[,3],
+        names = c(expression(beta[0]),expression(beta[1]),expression(sigma)),
+        main = 'MH Estimates for Cauchy Regression Model',
+        xlab = 'Parameter',
+        ylab = 'Estimate')
+mtext(side = 3.5,line = 0.5,at = 0.65,adj = -0.1, cex = 1,mysub)
+```
+
+We can see that over the 100 runs, the estimates for each parameter seem to agree quite well and are very similar to the true parameter values that were assigned. **These values are quite different from the OLS estimates** $\beta_{0}^{OLS} = 44, \beta_1^{OLS} = 2.7$ , demonstrating the ability of the Cauchy model to overcome outliers in parameter inference. We can now compare how the OLS model performs compared to the model we have inferred.
+
+## Model Performance
+
+Comparing the MSE for the OLS model against the Cauchy model for the training data.
+
+```{r}
+#OLS Model
+lm.fit <- lm(y~x)
+lm.mse <- sum((y-predict.lm(lm.fit,as.data.frame(x)))^2)/(n)
+#Cauchy Model
+b0 <- mean(mh_output[,1])
+b1 <- mean(mh_output[,2])
+sigma <- mean(mh_output[,3])
+cauchy.mse <- sum((y-(b0+b1*x))^2)/(n)
+
+barplot(c(lm.mse,cauchy.mse),names.arg = c("OLS MSE","Cauchy MSE"),
+        main = "MSE for Training Observations")
+```
+
+As we know there is an outlier, we can omit it during validation.
+
+```{r, warning=FALSE,message=FALSE}
+#OLS Model
+lm.fit <- lm(y~x)
+lm.mse <- sum((y[-8]-predict.lm(lm.fit,as.data.frame(x[-8])))^2)/(n-1)
+#Cauchy Model
+cauchy.mse <- sum((y[-8]-(b0+b1*x[-8]))^2)/(n-1)
+
+barplot(c(lm.mse,cauchy.mse),names.arg = c("OLS MSE","Cauchy MSE"),
+        main = "MSE for Training Observations (w/o Outlier)")
+```
+
+We can see that barring the outlier, the model performs better than the OLS approach, even with the outlier being used in the training data. We can also try it out on unseen data.
+
+```{r, warning=FALSE,message=FALSE}
+nn <- 1000
+nx<-sort(runif(nn,0,5))
+ny<-be0+be1*x+rt(nn,1)*sig
+
+lm.mse <- sum((ny-predict.lm(lm.fit,as.data.frame(nx)))^2)/(nn)
+cauchy.mse <- sum((ny-(b0+b1*nx))^2)/(nn)
+
+
+
+barplot(c(lm.mse,cauchy.mse),names.arg = c("OLS MSE","Cauchy MSE"),
+        main = "MSE for New Observations")
+
+
+```
+
+Again, we see a similar performance between both models when outliers are also being predicted.

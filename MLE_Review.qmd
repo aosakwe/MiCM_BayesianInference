@@ -1,0 +1,200 @@
+---
+title: "MLE Review"
+author: "Adrien Osakwe"
+format: html
+editor: visual
+---
+
+## Maximum Likelihood Review
+
+Here we will explore the binomial model, where each random variable represents a success (1) or failure (0) of a trial. The example we will explore is the thumbtack toss, where the ground truth probability of success (landing with the point up) is less well defined.
+
+We can assume *n* trials are done and count the total number of trials where the point lands up ($s_n$ ) to find an approximation of the ground truth for the probability of success $\theta$ . A feasible approach to estimating $\theta$ would be to divide the number of success $s_n$ by the number of trials $n$:
+
+$$
+\theta = \frac{s_n}{n}
+$$
+
+However, this estimation is only meaningful for large n (a lot of observations) and provides no estimate of the *uncertainty* of the measurement. Hence, the field of *statistical inference* becomes relevant as the latter can be achieved by creating a model for the problem.
+
+#### Generate Data
+
+To create the model, we first generate data by tossing the thumbtack say, 25 times ($n = 25$). We can then present the problem as a binomial model where:
+
+$$
+s_n \sim Bin(n,\theta)
+$$
+
+which takes the form:
+
+$$
+f(s_n;n,\theta) = \binom{n}{s_n}\theta^{s_n}(1-\theta)^{n-s_n}
+$$
+
+```{r}
+#| echo: false
+# Plotting Examples
+n <- 25
+sn <- 0:n
+theta <- c(5,10,15,20)/n
+plot(sn,dbinom(sn,n,theta[1]),col = 'red',type = 'b', ylab = 'P(SN = sn)')
+lines(sn,dbinom(sn,n,theta[2]),col = 'blue',type = 'b')
+lines(sn,dbinom(sn,n,theta[3]),col = 'green',type = 'b')
+lines(sn,dbinom(sn,n,theta[4]),col = 'black',type = 'b')
+legend('topleft',inset = .02,legend = c('0.2','0.4','0.6','0.8'), title = 'Theta Value',col = c('red','blue','green','black'),lwd =2 )
+```
+
+The above plot shows how the choice of $\theta$ affects the overall distribution. From here, we can try to infer the true value of theta using a *frequentist* or *Bayesian* approach.
+
+### Maximum Likelihood
+
+The frequentist approach relies on what is called the likelihood: the probability that the distribution has a certain parameter given the data we collected. From this equation we try to find the maximum likelihood. That is, we try to find the parameter that *maximizes* the likelihood for the data we collected. For our binomial model, we then have:
+
+$$
+\hat{\theta}(s_n) = \underset{\theta}{argmax}L(\theta;s_n)
+$$
+
+where
+
+$$
+L(\theta;s_n)
+$$
+
+is the likelihood function we are maximizing.
+
+For convenience, the likelihood is often expressed as a *log-likelihood* which is usually easier to compute. The first step is to ignore the normalizing constant, as it does not depend on $\theta$ . We then have:
+
+$$
+l(\theta;s_n) = logL(\theta;s_n) 
+$$
+
+$$
+= logf(s_n;n,\theta) \propto  log(\theta^{s_n}(1-\theta)^{n-s_n})
+$$
+
+$$
+= s_nlog\theta + (n-s_n)log(1-\theta)
+$$
+
+Differentiating the equation helps us identify the extreme values:
+
+$$
+l'(\theta;s_n) = \frac{s_n}{\theta} - \frac{n-s_n}{1-\theta} = 0
+$$
+
+$$
+ = s_n-s_n\theta - n\theta + s_n\theta = s_n -n\theta
+$$
+
+$$
+\theta = \frac{s_n}{n}
+$$
+
+```{r}
+
+## Checking if this is indeed the maximum
+n <- 25
+sn <- 15
+thetas <- seq(0,1,0.1)
+loglik_slope <- sn/thetas - (n-sn)/(1-thetas)
+
+plot(thetas,loglik_slope, xlab = 'Theta Value',ylab = 'Log-Likelihood Slope')
+lines(thetas,rep(0,length(thetas)), col = 'red')
+```
+
+We can also use the second derivative which is always negative, indicating that the log-likelihood is concave and that the extreme value is a global maximum.
+
+Although this approach gives us an estimate of the model parameters, there is no indication of our *confidence* in the result and on the likelihood of other parameter values. This is due to the frequentist approach treating $\theta$ as a constant as opposed to an unknown random variable.
+
+This is circumvented by calculating the maximum likelihood estimates from all observable data sets. In this case, we are observing the random variable $S_n$ as opposed to the constant $s_n$ and have the following \*maximum likelihood estimate:
+
+$$ \hat{\theta}(Y) = \frac{Y}{n}$$
+
+We can then estimate the standard error and construct confidence intervals for our parameter values. Hypothesis testing is also a possibility.
+
+## Exercises
+
+### 
+
+### 1. Selecting a likelihood
+
+A\) You have a suite of patients for whom you record the number of visits following treatment. What distribution would be suitable to model the number of visits?
+
+B\) You are taking measurements of the weight change in a set of patients following treatment. What distribution could model the weight change?
+
+C\) You have genotype information (nucleotide variant) for a single SNP (single nucleotide polymorphism) over a population of size $N$. You decide to record whether or not each individual has a mutation at that SNP (mutation = 1, wildtype = 0). What distribution could help you determine the **mutation rate** for this SNP in a given population.
+
+### 2. Simulating Data
+
+Try and simulate data for the three scenarios above. Select a suitable set of
+
+```{r}
+#Scenario A
+
+#Set true parameter values
+#hint: how many parameters does your distribution require? You may need more than 1
+theta <- NA
+
+#use the corresponding Random Variable generator
+#Example: normal distribution can be sampled using rnorm()
+#Note: if the distribution has more than one parameter, you can set one of them to be known ex: for a normal distribution, assume the variance is known.
+n_sim <- 50 #Number of simulated samples
+y <- NA
+
+#Plot a histogram of the simulated examples
+hist(y)
+```
+
+```{r}
+#Scenario B
+
+
+#Set true parameter values
+#hint: how many parameters does your distribution require? You may need more than 1
+theta <- NA
+
+#use the corresponding Random Variable generator
+#Example: normal distribution can be sampled using rnorm()
+#Note: if the distribution has more than one parameter, you can set one of them to be known ex: for a normal distribution, assume the variance is known.
+n_sim <- 50 #Number of simulated samples
+y <- NA
+
+#Plot a histogram of the simulated examples
+hist(y)
+```
+
+```{r}
+#Scenario C
+
+
+#Set true parameter values
+#hint: how many parameters does your distribution require? You may need more than 1
+theta <- NA
+
+#use the corresponding Random Variable generator
+#Example: normal distribution can be sampled using rnorm()
+#Note: if the distribution has more than one parameter, you can set one of them to be known ex: for a normal distribution, assume the variance is known.
+n_sim <- 50 #Number of simulated samples
+y <- NA
+
+#Plot a histogram of the simulated examples
+hist(y)
+```
+
+### 3. Joint likelihood
+
+As we usually have more than one observation, we need to use the **joint likelihood**. If we assume **conditional independence**, this can be calculated as
+
+$$
+p(Y|\theta) = \prod_{i = 1}^{n}p(y_i|\theta)  
+$$
+
+Where Y is a set containing **all** observations and $i$ represents a specific observation.
+
+Knowing this, try to derive the joint likelihood for the three scenarios above. If you simplify it, do you find a **sufficient statistic**?
+
+### 4. Deriving the maximum likelihood estimate
+
+For one of the above scenarios, find the derivative of the likelihood and obtain the MLE. Does this align with the simulated data you plotted?
+
+Hint: you can get the corresponding pdfs from the cheat sheet!

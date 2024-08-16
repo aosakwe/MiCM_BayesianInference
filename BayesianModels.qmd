@@ -1,0 +1,155 @@
+---
+title: "Bayesian Modelling"
+author: "Adrien Osakwe"
+format: html
+editor: visual
+---
+
+In this section we will explore extensions of the Bayesian methods framework for different predictive/inference tasks.
+
+## Linear Regression
+
+Basic Linear Regression is derived from defining our response variable $Y$ to be generated from a Normal distribution where $\mu = X\beta$. Here, $X$ represents our input variables for all observations and $\beta$ our coefficients. We therefore have
+
+$$
+Y \sim Normal(X\beta,\sigma^2)
+$$
+
+For now, we can assume that the variance is known . As $X$ is constant, we therefore only need a prior for $\beta$. Conveniently, the normal distribution is a conjugate prior to itself.
+
+$$
+\beta|\sigma^2 \sim Normal(\theta,\sigma^2I)
+$$
+
+We can represent the posterior for $\beta$ as
+
+$$
+p(\beta|y,X) \propto p(y|X,\beta)p(\beta|\sigma^2I)
+$$
+
+For brevity, we will skip the derivation here. Note: a trick known as 'completing the square' helps make deriving the closed-form a lot simpler.
+
+$$
+\beta|y,X \sim Normal(\beta_n,\sigma_n^2I)
+$$
+
+Where
+
+$$
+\sigma_n^2I = \left((\sigma^2I)^{-1} + \frac{1}{\sigma^2}X^TX\right)^{-1}
+$$
+
+$$
+\beta_n = \sigma_n^2I((\sigma^2I)^{-1}\theta + \frac{1}{\sigma^2}X^Ty)
+$$
+
+```{r}
+##Simulate Data
+b <- c(-1,5,10,15,20)
+sig2 <- 1
+sig2_mat <- matrix(0,length(b),length(b))
+theta <- rep(0,length(b))
+diag(sig2_mat) <- sig2
+n <- 10
+x <- matrix(rnorm(n*length(b),0,1),nrow = n)
+
+#Simulated Responses
+y <- rnorm(n,x %*% b,sig2) + rnorm(n,0,10)
+
+sign_mat <- ((sig2_mat)^-1 + (1/sig2) * t(x)%*%x)^-1
+beta_n <- sign_mat %*% (diag(sig2_mat)^-1 * theta + (1/sig2) * t(x)%*% as.matrix(y))
+
+
+
+#Compare to standard linear regression
+df <- cbind(y,x)
+df <- as.data.frame(df)
+
+lm.fit <- lm(y ~ .,df + 0)
+
+
+
+
+cbind(b,beta_n,lm.fit$coefficients[-1])
+
+#Exercise try changing the hyper-parameters & sample size. How does this affect the inferred weights?
+
+```
+
+```{r}
+#Visualize Posterior distribution for specific coefficients
+library(mvtnorm)
+post_sim <- rmvnorm(1000, mean = beta_n, sigma = sign_mat)
+
+b_index <- 3
+
+hist(post_sim[,b_index])
+```
+
+```{r}
+## Regularized Linear Regression
+tau2 <- 10  # Prior variance (corresponds to ridge penalty)
+
+
+sign_mat_ridge <- ((sig2_mat/tau2)^-1 + (1/sig2) * t(x)%*%x)^-1
+beta_n_ridge <- sign_mat_ridge %*% (diag(sig2_mat)^-1 * theta + (1/sig2) * t(x)%*% as.matrix(y))
+beta_n_ridge
+
+post_sim <- rmvnorm(1000, mean = beta_n_ridge, sigma = sign_mat_ridge)
+hist(post_sim[,b_index])
+
+```
+
+## Non-linear Regression
+
+### Generalized Linear Models (discuss exp-log trick)
+
+Linear models are extremely simple to implement and often provide a suitable if not satisfactory level of performance in most tasks. However, there are many situations in which a Normal distribution may not be the optimal likelihood for our problem (for example, if we are trying to predict counts). In such cases, it is preferable to replace our Normal likelihood (and corresponding priors) with a more suitable one (in this example, a Poisson) from the Exponential family. Such extensions of the linear model are known as **Generalized Linear Models (GLMs)**. GLMs take the following formulation:
+
+We assume that our model $f_{Y|X}(y|x;\beta)$ follows an Exponential family model where
+
+$$
+\mathbb{E}_{Y|X}[Y|\mathbf{X} = \mathbf{x};\beta] = g^{-1}(\mathbf{x}\beta) \equiv \mu
+$$
+
+$$
+Var_{Y|X}[Y|\mathbf{X} = \mathbf{x};\beta] = Var(\mu)
+$$
+
+and
+
+$$
+g(\mu) = \mathbf{x}\beta
+$$
+
+here, $g$ represents a *link function*, the key component of GLMs. In essence, the use of a link function allows us to ensure the estimated coefficients $\beta$ retain an interpretable form.
+
+#### Binary (Logistic) Regression
+
+We may also want to predict a binary outcome. In this case, a Bernoulli distribution is a more practical likelihood.
+
+We set our link function such that $\frac{\exp(\mathbf{x}_i\beta)}{1 +\exp(\mathbf{x}_i\beta) } = \mu_i$.
+
+You may notice that this the same formulation as logistic regression (because it is). Our likelihood (following the exp-log trick) is as follows:
+
+$$
+\mathcal{L}_n(\beta) = \prod_{i=1}^n \exp\left(y_ilog(\mu_i) + (1-y_i)log(1-\mu_i)\right)
+$$
+
+#### Negative-Binomial GLM
+
+In certain cases, the poisson-based GLM is insufficient as it does not allow us to model the variance of the data. We can circumvent this by either using a normal likelihood (not always ideal) OR, the negative binomial distribution which is suitable for count data. A neat advantage of the negative binomial distribution is its inclusion of the 'dispersion parameter' $\alpha$ which allows it to model variance with greater accuracy. For large values, the dispersion parameter will cause the NB distribution to converge to a Poisson however, smaller values will lead to larger variance which is beneficial when we want to avoid false positives in our modeling results. We have that
+
+$$
+exp(\mathbf{x_i}\beta) = \mu_i = \mathbb{E}_{Y|X_i}[Y|\mathbf{X_i};\beta,\alpha] 
+$$
+
+however, the variance is calculated as follows
+
+$$
+Var_{Y|X_i}[Y|\mathbf{X_i};\beta,\alpha] = \mu_i + \frac{\mu_i}{\alpha}
+$$
+
+The negative-binomial GLM is fairly common in genomics, particularly for RNA-seq data. A popular tool that is based on this framework is DESeq2 which is used to identify differentially expressed genes.
+
+### 
