@@ -133,13 +133,13 @@ Try and simulate data for the three scenarios above. Select a suitable set of
 
 #Set true parameter values
 #hint: how many parameters does your distribution require? You may need more than 1
-theta <- NA
+theta <- 1
 
 #use the corresponding Random Variable generator
 #Example: normal distribution can be sampled using rnorm()
 #Note: if the distribution has more than one parameter, you can set one of them to be known ex: for a normal distribution, assume the variance is known.
-n_sim <- 50 #Number of simulated samples
-y <- NA
+n_sim <- 1000 #Number of simulated samples
+y <- rpois(n_sim,theta)
 
 #Plot a histogram of the simulated examples
 hist(y)
@@ -151,13 +151,14 @@ hist(y)
 
 #Set true parameter values
 #hint: how many parameters does your distribution require? You may need more than 1
-theta <- NA
+theta <- 10
+sd <- 1
 
 #use the corresponding Random Variable generator
 #Example: normal distribution can be sampled using rnorm()
 #Note: if the distribution has more than one parameter, you can set one of them to be known ex: for a normal distribution, assume the variance is known.
-n_sim <- 50 #Number of simulated samples
-y <- NA
+n_sim <- 500 #Number of simulated samples
+y <- rnorm(n_sim,theta,sd)
 
 #Plot a histogram of the simulated examples
 hist(y)
@@ -169,13 +170,13 @@ hist(y)
 
 #Set true parameter values
 #hint: how many parameters does your distribution require? You may need more than 1
-theta <- NA
+theta <- 0.6
 
 #use the corresponding Random Variable generator
 #Example: normal distribution can be sampled using rnorm()
 #Note: if the distribution has more than one parameter, you can set one of them to be known ex: for a normal distribution, assume the variance is known.
-n_sim <- 50 #Number of simulated samples
-y <- NA
+n_sim <- 1000 #Number of simulated samples
+y <- rbinom(n_sim,100,theta)
 
 #Plot a histogram of the simulated examples
 hist(y)
@@ -198,3 +199,18 @@ Knowing this, try to derive the joint likelihood for the three scenarios above. 
 ### 4. Deriving the maximum likelihood estimate
 
 For one of the above scenarios, find the derivative of the likelihood and obtain the MLE. Does this align with the simulated data you plotted?
+
+```{r}
+likelihood <- function(s_n,theta,n){
+  exp(-(n*theta))*(theta^s_n)
+}
+
+
+
+theta <- 1
+n_sim <- 100 #Number of simulated samples
+y <- rpois(n_sim,theta)
+s_n <- sum(y)
+output <- likelihood(s_n,0:25,n_sim)
+plot(0:25,output)
+```

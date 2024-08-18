@@ -68,7 +68,7 @@ legend('topleft',inset = 0.02,legend = c('Beta(a,b)','Beta(a_n,b_n)'),
 This reveals that the true value of theta (given the observed trials) is most likely between \~ 0.4 and 0.8.
 
 ```{r}
-pbeta(0.8,a_n,b_n) - pbeta(0.4,a_n,b_n) 
+pbeta(0.7,a_n,b_n) - pbeta(0.5,a_n,b_n) 
 ```
 
 We can also calculate the *posterior mean* by finding the mean of the beta distribution we derived for the posterior
@@ -170,11 +170,11 @@ We can explore the concept using the gamma-poisson model.
 
 ```{r}
 n <- 100 
-true_theta <- 8 
+true_theta <- 2 
 set.seed(123) 
 y <- rpois(n,true_theta) 
-a <- 1 
-b <- 2 
+a <- 5 
+b <- 4 
 conf <- 0.05 
 theta <- seq(0,10,length = 100) 
 par(mfrow = c(3,2),mar = c(5, 5, 1.5, 1.5)) 
@@ -196,7 +196,7 @@ legend('topright', inset = .02, legend = c('Prior'),
        col = c('orange'), lwd = 2) 
 
 
-for (i in c(5,10,25,50,100)){   
+for (i in c(1,10,25,50,100)){   
   prior <- dgamma(theta,shape = a, rate = b)   
   posterior <- dgamma(theta,shape = a + sum(y[1:i]), rate = b + i)   
   plot(theta,prior,
@@ -395,12 +395,31 @@ You have a suite of patients for whom you record the number of visits following 
 
 Hint: First derive the joint likelihood over $n$ observations. Then take the product of the joint likelihood and the prior.
 
+$$
+Gamma(\alpha,\beta) = \frac{\beta^\alpha}{\Gamma({\alpha})}\theta^{\alpha-1}e^{-\beta\theta}
+$$
+
+$$
+Poisson(\theta) = \frac{e^{-\theta}\theta^x}{x!}
+$$
+
 ```{r}
 #Define true parameter value and simulate observations
-
+theta <- 5
 #Define hyper-parameter values for the gamma prior
+a <- 1
+b <- 1
+#Simulate observations
+n <- 25
+y <- rpois(n,theta)
 
 #Plot posterior distribution over a range of possible parameter values
+a_n <- sum(y) + a
+b_n <- b + n
+theta_sim <- rgamma(300,a_n,b_n)
+hist(theta_sim)
+
+plot(0:150,dgamma(0:150,a_n,b_n),type = 'l')
 ```
 
 ### 2. Derive prior predictive distributions
@@ -415,12 +434,20 @@ $$
 #Plot distribution over the range of possible sufficient statistic values
 ```
 
+$$
+P(Y) = \frac{\beta_0^{\alpha_0}}{\Gamma(\alpha_0)}\frac{\Gamma(\alpha_n)}{\beta_n^{\alpha_n}}\frac{1}{\prod y_i!}
+$$
+
 ### 3. Use posterior predictive distributions
 
 Using simulated observations, derive the posterior predictive distribution for the Poisson-Gamma Model
 
 $$
 P(\hat{Y}| Y) = \int P(\hat{Y}|\theta)P(\theta| Y)d\theta
+$$
+
+$$
+P(\hat{Y}|Y) = \frac{\beta_n^{\alpha_n}}{\Gamma(\alpha_n)}\frac{\Gamma(\alpha_z)}{\beta_z^{\alpha_z}}\frac{1}{\prod y_i!}
 $$
 
 ```{r}

@@ -50,7 +50,7 @@ sig2 <- 1
 sig2_mat <- matrix(0,length(b),length(b))
 theta <- rep(0,length(b))
 diag(sig2_mat) <- sig2
-n <- 10
+n <- 50
 x <- matrix(rnorm(n*length(b),0,1),nrow = n)
 
 #Simulated Responses
@@ -81,14 +81,14 @@ cbind(b,beta_n,lm.fit$coefficients[-1])
 library(mvtnorm)
 post_sim <- rmvnorm(1000, mean = beta_n, sigma = sign_mat)
 
-b_index <- 3
+b_index <- 4
 
 hist(post_sim[,b_index])
 ```
 
 ```{r}
 ## Regularized Linear Regression
-tau2 <- 5  # Prior variance (corresponds to ridge penalty)
+tau2 <- 25  # Prior variance (corresponds to ridge penalty)
 
 
 sign_mat_ridge <- ((sig2_mat/tau2)^-1 + (1/sig2) * t(x)%*%x)^-1

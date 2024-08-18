@@ -64,9 +64,9 @@ $$
 $$
 
 ```{r}
-true_theta <- 3
+true_theta <- 5
 a <- b <- 1
-n <- 5
+n <- 15
 set.seed(123)
 
 y <- rpois(n,true_theta)
@@ -157,7 +157,7 @@ And a marginalized joint pdf (numerator) we cannot integrate over (intractable).
 q <- function(theta,y,n,mu,sigma2){
   theta^(sum(y) - 1) * exp(-n*theta-(log(theta)-mu)^2 / (2*sigma2))
 }
-mu <- 0
+mu <- 1
 sigma2 <-1
 #Explore theta on (0,25) --> Need a fixed range 
 low_bound <- 0
@@ -497,7 +497,7 @@ for (i in 2:n_sim){
 }
 
 library(ggplot2)
-library(gganimate)
+
 gibbs_df <- data.frame(mu1,mu2, iteration = 1:n_sim)
 gibbs_df$start <- '-'
 gibbs_df$start[1] <- "Start"
@@ -509,15 +509,6 @@ ggplot(gibbs_df,aes(mu1,mu2,shape = start)) +
 panel.background = element_blank(),
 axis.line = element_line(colour = "black"))
 
-ggplot(gibbs_df,aes(mu1,mu2,shape = start)) + 
-  geom_path( aes(group = 'all'))  + 
-  theme(panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-panel.background = element_blank(),
-axis.line = element_line(colour = "black")) +
-  labs(title = 'Iteration: {frame_along}') +
-  transition_reveal(along = iteration)
-anim_save('mcmc.gif', animation = last_animation(), path = NULL)
 ```
 
 We can compare our results with the true posterior to see how well we approximated the distribution.
@@ -589,64 +580,3 @@ axis.line = element_line(colour = "black")) +
 ```
 
 Once again, we see that the MCMC sampler is generating samples in a similar fashion to the target distribution!
-
-### Probabilistic Programming - Incomplete
-
-## Sampling from the Posterior Predictive Distribution - NEEDS REVISION
-
-Once we have determined the posterior distribution, sampling from the posterior predictive distribution ([recall chapter 3](./Binomial_Model.qmd)) becomes simple.
-
-Assume we wan to predict probabilities for new the observation $Y'$ from the generative process derived from the original observations $Y$ . We can assumed we generated $s$ parameter values $\theta_1,...,\theta_s$ from the posterior distribution $p(\theta|y)$. With these sampled values we can then sample $Y'$ from as follows:
-
-1.  For all $s = 1,..,S$:
-
-    -   Sample $Y'_s \sim p(y'|\theta_s)$
-
-We therefore sample a new observation for each sampled parameter value. The empirical distribution of this sampling procedure can be used to approximate the posterior predictive distribution.
-
-$$
-p(y'|y) = \int p(y'|\theta)p(\theta|y)d\theta
-$$
-
-### Example #1
-
-Let's create a simple example using a beta-binomial model used in chapter 3. Recall that the beta-binomial conjugacy meant that the sum of all observation of $Y$, $s_n$ was all that was needed to calculate the joint likelihood and the resulting posterior.
-
-```{r}
-a <- 1
-b <- 3
-theta <- 0.25
-n <- 250
-sn  <- theta*n
-theta_seq <- seq(0,1,by = 0.01)
-plot(theta_seq,dbeta(theta_seq,a + sn,n-sn+b), type = 'l',
-     col = 'red',
-     xlab = expression(theta),
-     ylab = 'Density',
-     main = 'Posterior Distribution for Beta-Binomial Model')
-```
-
-Again, we see that the posterior heavily favors the true parameter value. Let us now use this to sample the posterior predictive. We can do this in two ways:
-
-1.  Plot the individual y values after sampling $S$ times.
-2.  Plot the distribution of the summary statistics after sampling $S$ observations $x$ times.
-
-Because the binomial distribution is discrete, we can plot the posterior predictive distribution in terms of the sufficient statistics to get more interpretable results.
-
-```{r}
-#Sample groups of observations
-trials <- 500
-s <- 100
-sn_post <- rep(0,trials)
-true_post <- dbinom(1:s,s,theta)
-for (i in 1:trials){
-  sn_post[i] <- rbinom(1,s,rbeta(s,a +sn,n-sn+b))
-}
-#Normaliz
-hist(sn_post,
-     xlab = expression(s_n),
-     main = 'Posterior Predictive Distribution')
-abline(v = theta*s,
-     col = 'red')
-which.max(true_post)/s
-```
